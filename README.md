@@ -58,7 +58,6 @@ cd n8n-workflow-generator
 Install dependencies:
 
 bash
-Copy code
 pip install torch transformers
 Place the fine-tuned GPT-J model checkpoint in ./gptj-n8n.
 
@@ -68,17 +67,14 @@ Usage
 Run the workflow generator script:
 
 bash
-Copy code
 python generate_workflow.py
 Enter a natural language description when prompted:
 
 pgsql
-Copy code
 Enter your workflow description: Create a Telegram AI assistant that replies to voice messages
 The script will output a JSON workflow compatible with n8n:
 
 json
-Copy code
 {
   "name": "Telegram AI Assistant",
   "nodes": [...],
@@ -125,15 +121,6 @@ This project is designed only for training with required resources (GPU, memory,
 
 License
 MIT License – free to use and modify, but ensure GPT-J licensing compliance.
-
-pgsql
-Copy code
-
----
-
-If you want, I can also **add a visual diagram section with ASCII or Mermaid flowchart** inside this README to show how `User Prompt → GPT-J → JSON → n8n Execution` works, which makes it super clear for anyone reading it.  
-
-Do you want me to add that too?
 
 
 
