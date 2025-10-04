@@ -1,133 +1,136 @@
-# n8n-GPT-J-Workflow-Generator
-This project fine-tunes GPT-J on the official n8n documentation and uses it to generate and deploy n8n workflows automatically.
+n8n Workflow Generator with GPT-J
+
+This project allows you to generate fully valid n8n workflows from natural language descriptions using a fine-tuned GPT-J model. By providing a plain English description of the desired workflow, the model outputs a JSON structure compatible with n8n’s workflow format, including nodes, connections, and settings.
+
+Table of Contents
 
 Overview
 
-Fine-tuned GPT-J
-A 6-billion-parameter language model trained on n8n documentation so it can answer questions and draft workflow steps.
+Features
 
-FastAPI Model Server
-Serves the trained GPT-J model via REST (http://localhost:8000/generate).
+Requirements
 
-Node.js App (app.js)
-Accepts user input, queries the GPT-J server, and creates a new workflow inside a local n8n instance via the n8n REST API.
+Installation
 
-🗂 Project Structure
-.
-├─ app.js                 # Node script that generates & posts workflows to n8n
-├─ server.py              # FastAPI server hosting the fine-tuned GPT-J model
-├─ train_gptj_n8n.py      # Fine-tune script for GPT-J
-├─ n8n_docs.jsonl         # Cleaned n8n docs for training
-└─ README.md
+Usage
 
-🔧 Requirements
+Workflow Logic
 
-Python 3.9+
-Packages: transformers, datasets, accelerate, fastapi, uvicorn
+Notes & Limitations
 
-Node.js 18+
-Package: axios
+Overview
 
-n8n running locally (http://localhost:5678)
+n8n is a workflow automation tool that allows users to automate tasks between apps and services. Each workflow is represented as JSON, containing:
 
-⚡ Setup & Usage
-1️⃣ Prepare Training Data
+nodes – individual actions or triggers
 
-Convert docs to JSONL (if not already done):
+connections – edges between nodes, defining data flow
 
-python prepare_jsonl.py
+settings – workflow-wide configuration
 
-2️⃣ Fine-Tune GPT-J
-pip install transformers datasets accelerate
-python train_gptj_n8n.py
+This project uses GPT-J, a large language model, to generate such workflow JSON automatically from user prompts.
 
+Features
 
-train_gptj_n8n.py (key parts):
+Generate workflows for triggers, conditional logic, API calls, and AI integrations.
 
-from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingArguments
+Support for complex workflows including multi-node sequences.
 
-model_name = "EleutherAI/gpt-j-6B"
-data_path  = "n8n_docs.jsonl"
+Few-shot learning with example workflows to guide generation.
 
-dataset = load_dataset("json", data_files=data_path, split="train")
+Designed for GPT-J, capable of handling long and structured outputs.
 
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-tokenizer.pad_token = tokenizer.eos_token
+Requirements
 
-def tokenize_fn(batch):
-    tokens = tokenizer(batch["text"], truncation=True, padding="max_length", max_length=1024)
-    tokens["labels"] = tokens["input_ids"].copy()
-    return tokens
+GPT-J model: Fine-tuned GPT-J checkpoint trained on example n8n workflows.
 
-tokenized = dataset.map(tokenize_fn, batched=True)
-model = AutoModelForCausalLM.from_pretrained(model_name)
+Hardware: GPU with sufficient VRAM (at least 12–16GB recommended). CPU inference is possible but slow.
 
-args = TrainingArguments(
-    output_dir="./n8n-gptj",
-    per_device_train_batch_size=1,   # GPT-J is large—start small
-    num_train_epochs=2,
-    gradient_accumulation_steps=8,
-    fp16=True,
-)
+Python >= 3.8
 
-trainer = Trainer(model=model, args=args, train_dataset=tokenized)
-trainer.train()
-trainer.save_model("./n8n-gptj")
-tokenizer.save_pretrained("./n8n-gptj")
+Libraries: transformers, torch
+
+⚠️ Important: This project cannot be trained or fine-tuned on GPT-2 or smaller models for production-level reliability. GPT-J’s capacity is required to reliably generate complex workflows.
+
+Installation
+
+Clone the repository:
+
+git clone <your-repo-url>
+cd n8n-workflow-generator
 
 
-💡 GPT-J is big—training is GPU-heavy. For CPU training you’ll need a smaller batch size or to use parameter-efficient fine-tuning (LoRA, PEFT).
+Install dependencies:
 
-3️⃣ Serve the Model
-pip install "uvicorn[standard]" fastapi
-python -m uvicorn server:app --host 0.0.0.0 --port 8000
+pip install torch transformers
 
 
-The endpoint POST /generate accepts:
+Place the fine-tuned GPT-J model checkpoint in ./gptj-n8n.
 
-{ "prompt": "How do I create a workflow in n8n?" }
+Store example workflows in examples/workflows/<workflow_name>.json for few-shot learning.
 
-4️⃣ Start n8n
+Usage
 
-Run n8n locally and create an API key:
-Settings → API → Create Key
+Run the workflow generator script:
 
-Set it in your environment:
-
-set N8N_API_KEY=<your_key_here>      # Windows
-export N8N_API_KEY=<your_key_here>   # Linux/Mac
-
-5️⃣ Run the Node App
-
-Install dependencies and start:
-
-npm install
-node app.js
+python generate_workflow.py
 
 
-app.js will:
+Enter a natural language description when prompted:
 
-Send your prompt to the GPT-J FastAPI server.
+Enter your workflow description: Create a Telegram AI assistant that replies to voice messages
 
-Receive generated workflow text.
 
-POST a valid workflow payload to the n8n REST API.
+The script will output a JSON workflow compatible with n8n:
 
-🛠 How It Works
+{
+  "name": "Telegram AI Assistant",
+  "nodes": [...],
+  "connections": {...},
+  "settings": {}
+}
 
-app.js
 
-Sends user prompts to the GPT-J server.
+Import the JSON directly into n8n via Workflows → Import.
 
-Receives text describing a workflow.
+Workflow Logic
 
-Posts a valid workflow (nodes, connections, positions, settings) to POST /api/v1/workflows with the X-N8N-API-KEY header.
+Input Collection: User provides a workflow description in natural language.
 
-server.py
+Prompt Construction:
 
-Loads the fine-tuned GPT-J model and exposes a /generate endpoint.
+GPT-J receives a “system prompt” describing the task.
 
-n8n REST API
+Few-shot examples (stored in examples/workflows/) are prepended to show desired JSON patterns.
 
-Stores the workflow so you can view/activate it in the n8n UI.
+The user prompt is appended.
+
+Generation: GPT-J produces workflow JSON including:
+
+Nodes (type, parameters, id, position)
+
+Connections (data flow between nodes)
+
+Settings (active, executionOrder)
+
+Post-Processing:
+
+JSON is validated.
+
+Node IDs and webhook IDs can be automatically replaced or updated.
+
+Output: JSON can be imported directly into n8n, making the workflow executable.
+
+Notes & Limitations
+
+GPT-J is required due to context length and model capacity. Smaller models like GPT-2 are insufficient for reliable multi-node workflow generation.
+
+Generated JSON may occasionally need minor validation or correction.
+
+Extremely large workflows may hit GPT-J’s context window limit; consider splitting complex workflows into smaller prompts.
+
+This project is designed only for training with required resources (GPU, memory, and fine-tuned dataset). Training with inadequate resources may fail or produce low-quality outputs.
+
+License
+
+MIT License – free to use and modify, but ensure GPT-J licensing compliance.
